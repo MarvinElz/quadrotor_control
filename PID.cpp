@@ -39,8 +39,6 @@ PID::updateState( double dt )
 
 	x[0] += x_dot[0] * dt;
 	x[1] += x_dot[1] * dt;
-
-	last_update = time_now;
 }
 
 
