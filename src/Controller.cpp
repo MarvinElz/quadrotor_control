@@ -1,7 +1,9 @@
 #include "ros/ros.h"
 #include "geometry_msgs/Twist.h"
-#include "msg/Pose.h"
+#include "quadrotor_control/Pose.h"
 #include "sensor_msgs/Joy.h"
+#include "PID.hpp"
+#include "quadrotor_control/manipulated_variables.h"
 
 enum { X, Y, Z, YAW };
 
@@ -34,11 +36,12 @@ struct pose
 	
 } typedef pose;
 
-double U[4];
-double vel_desired[4];
-double vel_max[4];
-vel vel_measure = {{0, 0, 0}, {0, 0, 0}}
-pose pose_measure = {{0, 0, 0}, {0, 0, 0}};
+double U[4] = {3.0, 0.0, 0.0, 0.0}; // U[0] != 0
+double vel_desired[4] = {0.0, 0.0, 0.0, 0.0};
+double vel_max[4] = {0.0, 0.0, 0.0, 0.0};
+double roll_desired = pitch_desired = 0.0;
+vel vel_measure = {{0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}};
+pose pose_measure = {{0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}};
 
 using namespace PID;
 
@@ -61,7 +64,7 @@ void callback_vel_measure( const geometry_msgs::Twist::ConstPtr& msg )
 	vel_measure.angular.z = msg.angular.z;
 }
 
-void callback_pose_measure( const msg::Pose::ConstPtr& msg )
+void callback_pose_measure( const quadrotor_control::Pose::ConstPtr& msg )
 {
 	pose_measure.position.x = msg.position.x;
 	pose_measure.position.y = msg.position.y;
@@ -77,11 +80,35 @@ void callback_rc_signal_delayed( const sensor_msgs::Joy::ConstPtr& msg )
 	berechne_UAV_sollgeschwindigkeit( msg );
 }
 
+void transform_coord()
+{
+	double sin_psi = sin(pose_measure.orientation.phi);
+	double cos_psi = cos(pose_measure.orientation.phi);
+
+	double temp    = vel_desired[X] * cos_psi - vel_desired[Y] * sin_psi;
+	vel_desired[Y] = vel_desired[X] * sin_psi +  vel_desired[Y] * cos_psi;
+	vel_desired[X] = temp;	 
+}
+
+// necessary tilt for desired acceleration
+void motion_equation()
+{
+	double sin_psi = sin(pose_measure.orientation.phi);
+	double cos_psi = cos(pose_measure.orientation.phi);
+
+	double m = 0.7; // TODO: Ueber PARAMETER einlesen, oder??
+	double f = m/U[0];
+	roll_desired   = f*( -ax * sin_psi + ay * cos_psi );
+	pitch_desired = f*( -ax * cos_psi - ay * sin_psi );
+}
+
 // Servie Aufruf zum Starten der Berechnung
 bool propagate()
 {
 	// TODO: dt berechnen
-	double dt;
+	double dt = 0.005;
+	// Sollbeschleunigungen
+	double ax, ay;
 
 	pid_vz.setInput( vel_desired[Z] - vel_measure.linear.z );
 	pid_vz.updateState( dt );
@@ -90,15 +117,33 @@ bool propagate()
 	pid_vyaw.setInput( vel_desired[YAW] - vel_measure.angular.yaw );
 	pid_vyaw.updateState( dt );
 	U[3] = pid_vyaw.getOutput();
-
 	
 	// TODO: Koordinatentransformation Body -> Init
-	// TODO: pid_vx und pid_vy berechnen
+	transform_coord();
+
+	pid_vx.setInput( vel_desired[X] - vel_measure.linear.x );
+	pid_vx.updateState( dt );
+	ax = pid_vx.getOutput();
+
+	pid_vy.setInput( vel_desired[Y] - vel_measure.linear.y );
+	pid_vy.updateState( dt );
+	ay = pid_vy.getOutput();
+
 	// TODO: Bewegungsgleichung berechnen
+	motion_equation();
+	
 	// TODO: Saturation
-	// TODO: pid_phi und pid_theta berechnen
+
+	pid_roll.setInput( roll_desired - pose_measure.orientation.roll );
+	pid_roll.updateState( dt );
+	U[1] = pid_roll.getOutput();
+
+	pid_pitch.setInput( pitch_desired - pose_measure.orientation.pitch );
+	pid_pitch.updateState( dt );
+	U[2] = pid_pitch.getOutput();
 
 	// TODO: Publish Steuergrößen
+	pub.publish(U);
 	return true;
 }
 
@@ -124,11 +169,14 @@ int main(int argc, char **argv)
 	PID pid_roll 	= new PID( ros::NodeHandle(nh, "roll"	) );
 	PID pid_pitch 	= new PID( ros::NodeHandle(nh, "pitch"	) );
 
-	ros::Subscriber sub = nh.subscribe("rc_signal_delayed", 10, callback_rc_signal_delayed);
-	ros::Subscriber sub = nh.subscribe("vel_measure", 10, callback_vel_measure);
-	ros::Subscriber sub = nh.subscribe("pose_measure", 10, callback_pose_measure);
+	ros::Subscriber sub1 = nh.subscribe("rc_signal_delayed", 10, callback_rc_signal_delayed);
+	ros::Subscriber sub2 = nh.subscribe("vel_measure", 10, callback_vel_measure);
+	ros::Subscriber sub3 = nh.subscribe("pose_measure", 10, callback_pose_measure);
 
 	ros::ServiceServer service = n.advertiseService("controller_prop", propagate);
+
+	ros::Publisher pub = n.advertise<quadrotor_control::manipulated_variables>("stellgroessen", 1000);
+
 
 	ros::spin();
 
