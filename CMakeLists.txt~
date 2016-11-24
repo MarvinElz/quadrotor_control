@@ -192,6 +192,13 @@ include_directories(
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
 
+add_message_files(
+    manipulated_variables.msg
+    pose.msg
+#   Message1.msg
+#   Message2.msg
+)
+
 add_executable( Controller src/Controller.cpp )
 target_link_libraries(Controller ${catkin_LIBRARIES})
 add_dependencies( Controller sensor_msgs geometry_msgs quadrotor_control)

@@ -1,6 +1,6 @@
 #include "ros/ros.h"
 #include "geometry_msgs/Twist.h"
-#include "quadrotor_control/pose.h"
+#include "quadrotor_control/Pose.h"
 #include "sensor_msgs/Joy.h"
 #include "PID.hpp"
 #include "quadrotor_control/manipulated_variables.h"
