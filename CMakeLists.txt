@@ -48,6 +48,7 @@ find_package(catkin REQUIRED COMPONENTS
 
 ## Generate messages in the 'msg' folder
 add_message_files(
+    FILES
     manipulated_variables.msg
     pose.msg
 #   Message1.msg
@@ -69,10 +70,11 @@ add_message_files(
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   std_msgs
-# )
+generate_messages(
+   DEPENDENCIES
+   std_msgs
+   geometry_msgs
+ )
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -119,18 +121,21 @@ catkin_package(
 ## Your package locations should be listed before other locations
 # include_directories(include)
 include_directories(
+  quadrotor_control/src
   ${catkin_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
-# add_library(quadrotor_control
-#   src/${PROJECT_NAME}/quadrotor_control.cpp
-# )
+add_library(quadrotor_control
+   #src/${PROJECT_NAME}/quadrotor_control.cpp
+   #${PROJECT_NAME}/src/PID.cpp
+   src/PID.cpp
+ )
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
 ## either from message generation or dynamic reconfigure
-# add_dependencies(quadrotor_control ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+#add_dependencies(quadrotor_control ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Declare a C++ executable
 # add_executable(quadrotor_control_node src/quadrotor_control_node.cpp)
@@ -140,7 +145,8 @@ include_directories(
 # add_dependencies(quadrotor_control_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-# target_link_libraries(quadrotor_control_node
+#target_link_libraries(
+#quadrotor_control_node
 #   ${catkin_LIBRARIES}
 # )
 
@@ -192,8 +198,8 @@ include_directories(
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
 
-add_executable( Controller src/Controller.cpp )
+add_executable( Controller src/Controller.cpp src/PID.cpp)
 target_link_libraries(Controller ${catkin_LIBRARIES})
-add_dependencies( Controller sensor_msgs geometry_msgs quadrotor_control)
+add_dependencies( Controller sensor_msgs geometry_msgs )
 
 
