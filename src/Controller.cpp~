@@ -190,9 +190,9 @@ int main(int argc, char **argv)
 	pid_roll 	= new PID( ros::NodeHandle(nh, "roll"	) );
 	pid_pitch 	= new PID( ros::NodeHandle(nh, "pitch"	) );
 
-	ros::Subscriber sub1 = nh.subscribe("/rc_signal_delayed", 10, callback_rc_signal_delayed);
-	ros::Subscriber sub2 = nh.subscribe("/vel_measure", 10, callback_vel_measure);
-	ros::Subscriber sub3 = nh.subscribe("/pose_measure", 10, callback_pose_measure);
+	ros::Subscriber sub1 = nh.subscribe("rc_signal_delayed", 10, callback_rc_signal_delayed);
+	ros::Subscriber sub2 = nh.subscribe("vel_measure", 10, callback_vel_measure);
+	ros::Subscriber sub3 = nh.subscribe("pose_measure", 10, callback_pose_measure);
 
 	ros::ServiceServer service = nh.advertiseService("controller_prop", propagate);
 
