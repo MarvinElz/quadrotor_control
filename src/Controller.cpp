@@ -45,6 +45,8 @@ double pitch_desired = 0.0;
 vel vel_measure = {{0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}};
 pose pose_measure = {{0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}};
 double ax, ay;
+ros::Time last_Prop;
+
 
 PID* pid_vx;
 PID* pid_vy;
@@ -64,7 +66,7 @@ void berechne_UAV_sollgeschwindigkeit(const sensor_msgs::Joy::ConstPtr& msg)
 	vel_desired[Y]   = - msg->axes[3] * vel_max[Y];
 	vel_desired[Z] 	 =   msg->axes[2] * vel_max[Z];
 	vel_desired[YAW] = - msg->axes[0] * vel_max[YAW];
-	ROS_INFO( "SOLL: %f, %f, %f, %f", vel_desired[X], vel_desired[Y], vel_desired[Z], vel_desired[YAW]);
+	//ROS_INFO( "SOLL: %f, %f, %f, %f", vel_desired[X], vel_desired[Y], vel_desired[Z], vel_desired[YAW]);
 }
 
 void callback_vel_measure( const geometry_msgs::Twist::ConstPtr& msg )
@@ -110,8 +112,12 @@ void motion_equation()
 	double sin_psi = sin(pose_measure.orientation.phi);
 	double cos_psi = cos(pose_measure.orientation.phi);
 
-	double m = 0.7; // TODO: Ueber PARAMETER einlesen, oder??
-	double f = m/U[0];
+	double m = 0.65; // TODO: Ueber PARAMETER einlesen, oder??
+	double f;
+	if(U[0] != 0.0)
+	   f = m/U[0];
+        else
+	   f = m/5;
 	roll_desired   = f*( -ax * sin_psi + ay * cos_psi );
 	pitch_desired  = f*( -ax * cos_psi - ay * sin_psi );
 }
@@ -120,43 +126,48 @@ void motion_equation()
 bool propagate( std_srvs::Empty::Request& req, std_srvs::Empty::Response& resp )
 {
 	ROS_INFO( "Start Propagation" );	
-	// TODO: dt berechnen
-	double dt = 0.005;
+	ros::Time now = ros::Time::now();
+   	double dt = (now - last_Prop).toSec();   
+   	last_Prop = now;	
+
 	// Sollbeschleunigungen	
-
-	pid_vz->setInput( vel_desired[Z] - vel_measure.linear.z );
-	pid_vz->updateState( dt );
+	pid_vz->setInput( vel_measure.linear.z - vel_desired[Z] );	
 	U[0] = pid_vz->getOutput();
+	pid_vz->updateState( dt );
 
-	pid_vyaw->setInput( vel_desired[YAW] - vel_measure.angular.yaw );
-	pid_vyaw->updateState( dt );
+	pid_vyaw->setInput( vel_desired[YAW] - vel_measure.angular.yaw );	
 	U[3] = pid_vyaw->getOutput();
+	pid_vyaw->updateState( dt );
 	
-	// TODO: Koordinatentransformation Body -> Init
+	// Koordinatentransformation Body -> Init
 	transform_coord();
 
-	pid_vx->setInput( vel_desired[X] - vel_measure.linear.x );
-	pid_vx->updateState( dt );
+	pid_vx->setInput( vel_desired[X] - vel_measure.linear.x );	
 	ax = pid_vx->getOutput();
+	pid_vx->updateState( dt );
 
 	pid_vy->setInput( vel_desired[Y] - vel_measure.linear.y );
-	pid_vy->updateState( dt );
 	ay = pid_vy->getOutput();
+	pid_vy->updateState( dt );
 
-	// TODO: Bewegungsgleichung berechnen
+	// Bewegungsgleichung berechnen
 	motion_equation();
 	
-	// TODO: Saturation
+	// Saturation
+        if( roll_desired > 20/180*3.1415) roll_desired = 20/180*3.1415;
+	if( roll_desired <-20/180*3.1415) roll_desired =-20/180*3.1415;
+        if( pitch_desired > 20/180*3.1415) pitch_desired = 20/180*3.1415;
+	if( pitch_desired <-20/180*3.1415) pitch_desired =-20/180*3.1415;
 
 	pid_roll->setInput( roll_desired - pose_measure.orientation.roll );
-	pid_roll->updateState( dt );
 	U[1] = pid_roll->getOutput();
+	pid_roll->updateState( dt );
 
 	pid_pitch->setInput( pitch_desired - pose_measure.orientation.pitch );
-	pid_pitch->updateState( dt );
 	U[2] = pid_pitch->getOutput();
+	pid_pitch->updateState( dt );
 
-	// TODO: Publish Steuergrößen
+	// Publish Steuergrößen
 	quadrotor_control::manipulated_variables U_out;
 	U_out.U.push_back(U[0]);
 	U_out.U.push_back(U[1]);
@@ -165,6 +176,7 @@ bool propagate( std_srvs::Empty::Request& req, std_srvs::Empty::Response& resp )
 	pub.publish(U_out);
 
 	ROS_INFO( "END PROPAGATION" );
+        ROS_INFO( "U1: %f, U2: %f, U3: %f, U4: %f", U[0], U[1], U[2], U[3] );
 	return true;
 }
 
@@ -182,6 +194,7 @@ int main(int argc, char **argv)
 	nh.getParam("vy_max"	, vel_max[Y]);
 	nh.getParam("vz_max"	, vel_max[Z]);
 	nh.getParam("vyaw_max"	, vel_max[YAW]);
+        last_Prop = ros::Time::now();
 
 	pid_vx 	= new PID( ros::NodeHandle(nh, "vxy"	) );
 	pid_vy 	= new PID( ros::NodeHandle(nh, "vxy"	) );
@@ -196,7 +209,7 @@ int main(int argc, char **argv)
 
 	ros::ServiceServer service = nh.advertiseService("controller_prop", propagate);
 
-	pub = nh.advertise<quadrotor_control::manipulated_variables>("stellgroessen", 1000);
+	pub = nh.advertise<quadrotor_control::manipulated_variables>("/stellgroessen", 1000);
 
 	ROS_INFO( "Controller Init done" );
 
