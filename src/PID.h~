@@ -5,7 +5,7 @@
 class PID
 {
 public:
-	PID( const ros::NodeHandle &nh_, float x0, float x1);
+	PID( const ros::NodeHandle &nh_, float x0 = 0, float x1 = 0 );
 	PID( const ros::NodeHandle &nh_ );
 	~PID();	
 	void setInput( double u );

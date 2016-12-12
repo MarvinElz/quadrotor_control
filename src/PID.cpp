@@ -6,8 +6,12 @@
 	pid_.x.init(ros::NodeHandle(controller_nh, "xy"));
 */
 
-PID::PID( const ros::NodeHandle &nh_ ) : nh(nh_){	
-	init();	
+PID::PID( const ros::NodeHandle &nh_) : nh(nh_){	
+	init( 0, 0 );	
+}
+
+PID::PID( const ros::NodeHandle &nh_, float x0, float x1) : nh(nh_){	
+	init( x0, x1 );	
 }
 
 PID::~PID()
@@ -15,15 +19,15 @@ PID::~PID()
 	
 }
 
-void PID::init(void)
+void PID::init( float x0, float x1)
 {
 	nh.getParam("P", P);
 	nh.getParam("I", I);
 	nh.getParam("D", D);
 	nh.getParam("N", N);
 	ROS_INFO("new PID-Controller: %f, %f, %f, %f", P, I, D, N);
-	x[0] = 0;
-	x[1] = 0;
+	x[0] = x0;
+	x[1] = x1;
 }
 
 void PID::setInput( double u_ )

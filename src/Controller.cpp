@@ -39,6 +39,7 @@ struct pose
 
 double U[4] = {3.0, 0.0, 0.0, 0.0}; // U[0] != 0
 double vel_desired[4] = {0.0, 0.0, 0.0, 0.0};
+double vel_desired_init[2] = {0.0, 0.0};
 double vel_max[4] = {0.0, 0.0, 0.0, 0.0};
 double roll_desired = 0.0;
 double pitch_desired = 0.0;
@@ -60,13 +61,30 @@ ros::Publisher pub;
 
 //using namespace PID;
 
+double ABS(double d){
+  if( d > 0 ) return d;
+  else return (-1.0) * d;
+}
+
 void berechne_UAV_sollgeschwindigkeit(const sensor_msgs::Joy::ConstPtr& msg)
-{
-	vel_desired[X]   =   msg->axes[4] * vel_max[X];
-	vel_desired[Y]   = - msg->axes[3] * vel_max[Y];
-	vel_desired[Z] 	 =   msg->axes[2] * vel_max[Z];
-	vel_desired[YAW] = - msg->axes[0] * vel_max[YAW];
-	//ROS_INFO( "SOLL: %f, %f, %f, %f", vel_desired[X], vel_desired[Y], vel_desired[Z], vel_desired[YAW]);
+{	
+	if( ABS(msg->axes[4]) < 0.2 )
+		vel_desired[X] = 0.0;
+	else
+		vel_desired[X]   =   msg->axes[4] * vel_max[X];
+	if( ABS(msg->axes[3]) < 0.2 )
+		vel_desired[Y] = 0.0;
+	else
+		vel_desired[Y]   = - msg->axes[3] * vel_max[Y];
+	if( ABS(msg->axes[1]) < 0.2 )
+		vel_desired[Z] = 0.0;
+	else
+		vel_desired[Z] 	 =   msg->axes[1] * vel_max[Z];
+	if( ABS(msg->axes[0]) < 0.2 )
+		vel_desired[YAW] = 0.0;
+	else
+		vel_desired[YAW] = - msg->axes[0] * vel_max[YAW];
+	//ROS_INFO( "SOLL_NEU: %f, %f, %f, %f", vel_desired[X], vel_desired[Y], vel_desired[Z], vel_desired[YAW]);
 }
 
 void callback_vel_measure( const geometry_msgs::Twist::ConstPtr& msg )
@@ -98,19 +116,18 @@ void callback_rc_signal_delayed( const sensor_msgs::Joy::ConstPtr& msg )
 
 void transform_coord()
 {
-	double sin_psi = sin(pose_measure.orientation.phi);
-	double cos_psi = cos(pose_measure.orientation.phi);
+	double sin_psi = sin(pose_measure.orientation.psi);
+	double cos_psi = cos(pose_measure.orientation.psi);
 
-	double temp    = vel_desired[X] * cos_psi - vel_desired[Y] * sin_psi;
-	vel_desired[Y] = vel_desired[X] * sin_psi + vel_desired[Y] * cos_psi;
-	vel_desired[X] = temp;	 
+	vel_desired_init[X]   = vel_desired[X] * cos_psi - vel_desired[Y] * sin_psi;
+	vel_desired_init[Y]   = vel_desired[X] * sin_psi + vel_desired[Y] * cos_psi;	 
 }
 
 // necessary tilt for desired acceleration
 void motion_equation()
 {
-	double sin_psi = sin(pose_measure.orientation.phi);
-	double cos_psi = cos(pose_measure.orientation.phi);
+	double sin_psi = sin(pose_measure.orientation.psi);
+	double cos_psi = cos(pose_measure.orientation.psi);
 
 	double m = 0.65; // TODO: Ueber PARAMETER einlesen, oder??
 	double f;
@@ -125,7 +142,7 @@ void motion_equation()
 // Servie Aufruf zum Starten der Berechnung
 bool propagate( std_srvs::Empty::Request& req, std_srvs::Empty::Response& resp )
 {
-	ROS_INFO( "Start Propagation" );	
+	//ROS_INFO( "Start Propagation" );	
 	ros::Time now = ros::Time::now();
    	double dt = (now - last_Prop).toSec();   
    	last_Prop = now;	
@@ -141,23 +158,30 @@ bool propagate( std_srvs::Empty::Request& req, std_srvs::Empty::Response& resp )
 	
 	// Koordinatentransformation Body -> Init
 	transform_coord();
-
-	pid_vx->setInput( vel_desired[X] - vel_measure.linear.x );	
+	
+	pid_vx->setInput( vel_desired_init[X] - vel_measure.linear.x );	
 	ax = pid_vx->getOutput();
 	pid_vx->updateState( dt );
 
-	pid_vy->setInput( vel_desired[Y] - vel_measure.linear.y );
+	pid_vy->setInput( vel_desired_init[Y] - vel_measure.linear.y );
 	ay = pid_vy->getOutput();
 	pid_vy->updateState( dt );
 
+	//ROS_INFO("AX: %f, AY: %f", ax, ay);
+
+	//ROS_INFO( "SOLL: %f, %f, %f, %f", vel_desired[X], vel_desired[Y], vel_desired[Z], vel_desired[YAW]);
+    
 	// Bewegungsgleichung berechnen
 	motion_equation();
+
+	//ROS_INFO( "ROLL: %f,PITCH: %f", roll_desired, pitch_desired);
 	
 	// Saturation
-        if( roll_desired > 20/180*3.1415) roll_desired = 20/180*3.1415;
-	if( roll_desired <-20/180*3.1415) roll_desired =-20/180*3.1415;
-        if( pitch_desired > 20/180*3.1415) pitch_desired = 20/180*3.1415;
-	if( pitch_desired <-20/180*3.1415) pitch_desired =-20/180*3.1415;
+
+        if( roll_desired >  20.0/180.0*3.1415) roll_desired  = 20.0/180.0*3.1415;
+	if( roll_desired <- 20.0/180.0*3.1415) roll_desired  =-20.0/180.0*3.1415;
+        if( pitch_desired > 20.0/180.0*3.1415) pitch_desired = 20.0/180.0*3.1415;
+	if( pitch_desired <-20.0/180.0*3.1415) pitch_desired =-20.0/180.0*3.1415;
 
 	pid_roll->setInput( roll_desired - pose_measure.orientation.roll );
 	U[1] = pid_roll->getOutput();
@@ -175,8 +199,8 @@ bool propagate( std_srvs::Empty::Request& req, std_srvs::Empty::Response& resp )
 	U_out.U.push_back(U[3]);
 	pub.publish(U_out);
 
-	ROS_INFO( "END PROPAGATION" );
-        ROS_INFO( "U1: %f, U2: %f, U3: %f, U4: %f", U[0], U[1], U[2], U[3] );
+	//ROS_INFO( "END PROPAGATION" );
+        //ROS_INFO( "U1: %f, U2: %f, U3: %f, U4: %f", U[0], U[1], U[2], U[3] );
 	return true;
 }
 
@@ -198,14 +222,14 @@ int main(int argc, char **argv)
 
 	pid_vx 	= new PID( ros::NodeHandle(nh, "vxy"	) );
 	pid_vy 	= new PID( ros::NodeHandle(nh, "vxy"	) );
-	pid_vz 	= new PID( ros::NodeHandle(nh, "vz"	) );
+	pid_vz 	= new PID( ros::NodeHandle(nh, "vz"	), 3, 3 );
 	pid_vyaw 	= new PID( ros::NodeHandle(nh, "vyaw"	) );
 	pid_roll 	= new PID( ros::NodeHandle(nh, "roll"	) );
 	pid_pitch 	= new PID( ros::NodeHandle(nh, "pitch"	) );
 
-	ros::Subscriber sub1 = nh.subscribe("/rc_signal_delayed", 10, callback_rc_signal_delayed);
-	ros::Subscriber sub2 = nh.subscribe("/vel_measure", 10, callback_vel_measure);
-	ros::Subscriber sub3 = nh.subscribe("/pose_measure", 10, callback_pose_measure);
+	ros::Subscriber sub1 = nh.subscribe("/rc_signal_delayed", 100, callback_rc_signal_delayed);
+	ros::Subscriber sub2 = nh.subscribe("/vel_measure", 100, callback_vel_measure);
+	ros::Subscriber sub3 = nh.subscribe("/pose_measure", 100, callback_pose_measure);
 
 	ros::ServiceServer service = nh.advertiseService("controller_prop", propagate);
 
