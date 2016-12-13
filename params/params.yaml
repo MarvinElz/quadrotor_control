@@ -1,28 +1,28 @@
 Controller: 
   m: 0.65 
   vxy: 
-    P: 7.5
-    I: 3
-    D: 4.2
-    N: 100
-  vz: 
-    P: 5.2
-    I: 3
-    D: 1.3
-    N: 100
-  vyaw: 
-    P: 3.9
-    I: 1
+    P: 4
+    I: 4
     D: 0
-    N: 100
+    N: 0
+  vz: 
+    P: 7
+    I: 6
+    D: 0
+    N: 0
+  vyaw: 
+    P: 1
+    I: 3
+    D: 0
+    N: 0
   roll: 
-    P: 4.5
-    I: 1
+    P: 3
+    I: 3
     D: 0.5
     N: 100
   pitch: 
-    P: 4.5
-    I: 1
+    P: 3
+    I: 3
     D: 0.5
     N: 100
 
