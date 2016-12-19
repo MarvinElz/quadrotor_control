@@ -1,9 +1,10 @@
 #include "ros/ros.h"
 #include "geometry_msgs/Twist.h"
+#include "quadrotor_control/manipulated_variables.h"
 #include "quadrotor_control/pose.h"
 #include "sensor_msgs/Joy.h"
 #include "PID.h"
-#include "quadrotor_control/manipulated_variables.h"
+
 #include "std_srvs/Empty.h"
 #include "std_srvs/SetBool.h"
 
