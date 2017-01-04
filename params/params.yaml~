@@ -1,7 +1,7 @@
 Controller: 
   m: 0.65 
   vxy: 
-    P: 0.5
+    P: 4
     I: 4
     D: 0
     N: 0
@@ -26,7 +26,7 @@ Controller:
     D: 0.5
     N: 100
 
-  vx_max: 0.1
-  vy_max: 0.1
+  vx_max: 0.5
+  vy_max: 0.5
   vz_max: 0.5
   vyaw_max: 0.2

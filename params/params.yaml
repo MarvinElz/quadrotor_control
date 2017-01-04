@@ -26,7 +26,11 @@ Controller:
     D: 0.5
     N: 100
 
-  vx_max: 0.1
-  vy_max: 0.1
+  vx_max: 0.5
+  vy_max: 0.5
   vz_max: 0.5
   vyaw_max: 0.2
+  X_Axis: 4
+  Y_Axis: 3
+  Z_Axis: 1
+  Yaw_Axis: 0

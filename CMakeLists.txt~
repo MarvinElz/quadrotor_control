@@ -10,7 +10,7 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   sensor_msgs
   message_generation
-roslaunch
+  roslaunch
   #quadrotor_control
 )
 
@@ -107,7 +107,7 @@ generate_messages(
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-  CATKIN_DEPENDS message_runtime
+  CATKIN_DEPENDS message_runtime geometry_msgs roscpp std_msgs
 #  INCLUDE_DIRS include
 #  LIBRARIES quadrotor_control
 #  CATKIN_DEPENDS roscpp rospy std_msgs
@@ -199,8 +199,9 @@ add_library(quadrotor_control
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
 
+
 add_executable( Controller src/Controller.cpp src/PID.cpp)
 target_link_libraries(Controller ${catkin_LIBRARIES})
-add_dependencies( Controller sensor_msgs geometry_msgs )
+add_dependencies( Controller std_msgs sensor_msgs geometry_msgs quadrotor_control_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
 
 

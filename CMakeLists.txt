@@ -52,6 +52,7 @@ add_message_files(
     FILES
     manipulated_variables.msg
     pose.msg
+    kinematics.msg
 #   Message1.msg
 #   Message2.msg
 )

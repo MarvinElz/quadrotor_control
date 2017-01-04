@@ -2,6 +2,7 @@
 #include "geometry_msgs/Twist.h"
 #include "quadrotor_control/manipulated_variables.h"
 #include "quadrotor_control/pose.h"
+#include "quadrotor_control/kinematics.h"
 #include "sensor_msgs/Joy.h"
 #include "PID.h"
 
@@ -18,48 +19,45 @@ double ABS( double d ){
 void berechne_UAV_sollgeschwindigkeit(const sensor_msgs::Joy::ConstPtr& msg)
 {	
 	//ROS_INFO( "INPUT: %f, %f, %f, %f", msg->axes[4], msg->axes[3], msg->axes[1], msg->axes[0] );
-	if( ABS(msg->axes[4]) < 0.2 )
+	if( ABS(msg->axes[X_Axis]) < 0.2 )
 		vel_desired[X] = 0.0;
 	else
-		vel_desired[X]   =   msg->axes[4] * vel_max[X];
+		vel_desired[X]   =   msg->axes[X_Axis] * vel_max[X];
 
-	if( ABS(msg->axes[3]) < 0.2 )
+	if( ABS(msg->axes[Y_Axis]) < 0.2 )
 		vel_desired[Y] = 0.0;
 	else
-		vel_desired[Y]   = - msg->axes[3] * vel_max[Y];
+		vel_desired[Y]   = - msg->axes[Y_Axis] * vel_max[Y];
 
-	if( ABS(msg->axes[1]) < 0.2 )
+	if( ABS(msg->axes[Z_Axis]) < 0.2 )
 		vel_desired[Z] = 0.0;
 	else
-		vel_desired[Z] 	 =   msg->axes[1] * vel_max[Z];
+		vel_desired[Z] 	 =   msg->axes[Z_Axis] * vel_max[Z];
 
-	if( ABS(msg->axes[0]) < 0.2 )
+	if( ABS(msg->axes[Yaw_Axis]) < 0.2 )
 		vel_desired[YAW] = 0.0;
 	else
-		vel_desired[YAW] = - msg->axes[0] * vel_max[YAW];
+		vel_desired[YAW] = - msg->axes[Yaw_Axis] * vel_max[YAW];
 	//ROS_INFO( "SOLL_NEU: %f, %f, %f, %f", vel_desired[X], vel_desired[Y], vel_desired[Z], vel_desired[YAW]);
 }
 
-void callback_vel_measure( const geometry_msgs::Twist::ConstPtr& msg )
+void callback_kin_measure( const quadrotor_control::kinematics::ConstPtr& msg )
 {
-	vel_measure.linear.x  = msg->linear.x;
-	vel_measure.linear.y  = msg->linear.y;
-	vel_measure.linear.z  = msg->linear.z;
+	vel_measure.linear.x  = msg->vel.linear.x;
+	vel_measure.linear.y  = msg->vel.linear.y;
+	vel_measure.linear.z  = msg->vel.linear.z;
 
-	vel_measure.angular.x = msg->angular.x;
-	vel_measure.angular.y = msg->angular.y;
-	vel_measure.angular.z = msg->angular.z;
-}
+	vel_measure.angular.x = msg->vel.angular.x;
+	vel_measure.angular.y = msg->vel.angular.y;
+	vel_measure.angular.z = msg->vel.angular.z;
 
-void callback_pose_measure( const quadrotor_control::pose::ConstPtr& msg )
-{
-	pose_measure.position.x = msg->position.x;
-	pose_measure.position.y = msg->position.y;
-	pose_measure.position.z = msg->position.z;
+	pose_measure.position.x = msg->pose.position.x;
+	pose_measure.position.y = msg->pose.position.y;
+	pose_measure.position.z = msg->pose.position.z;
 
-	pose_measure.orientation.phi 	= msg->orientation.x;
-	pose_measure.orientation.theta 	= msg->orientation.y;
-	pose_measure.orientation.psi 	= msg->orientation.z;
+	pose_measure.orientation.phi 	= msg->pose.orientation.x;
+	pose_measure.orientation.theta 	= msg->pose.orientation.y;
+	pose_measure.orientation.psi 	= msg->pose.orientation.z;
 }
 
 void callback_rc_signal_delayed( const sensor_msgs::Joy::ConstPtr& msg )
@@ -183,6 +181,13 @@ int main(int argc, char **argv)
 	nh.getParam("vy_max"	, vel_max[Y]);
 	nh.getParam("vz_max"	, vel_max[Z]);
 	nh.getParam("vyaw_max"	, vel_max[YAW]);
+
+	// Parameter für Fernbedienung holen
+	nh.getParam("X_Axis"	, X_Axis);
+	nh.getParam("Y_Axis"	, Y_Axis);
+	nh.getParam("Z_Axis"	, Z_Axis);
+	nh.getParam("Yaw_Axis"	, Yaw_Axis);
+
         last_Prop = ros::Time::now();
 
 	pid_vx 	= new PID( ros::NodeHandle(nh, "vxy"	) );
@@ -192,9 +197,8 @@ int main(int argc, char **argv)
 	pid_roll 	= new PID( ros::NodeHandle(nh, "roll"	) );
 	pid_pitch 	= new PID( ros::NodeHandle(nh, "pitch"	) );
 
-	ros::Subscriber sub1 = nh.subscribe("/rc_signal_delayed", 10, callback_rc_signal_delayed);
-	ros::Subscriber sub2 = nh.subscribe("/vel_measure", 10, callback_vel_measure);
-	ros::Subscriber sub3 = nh.subscribe("/pose_measure", 10, callback_pose_measure);
+	ros::Subscriber subRC  = nh.subscribe("/rc_signal_delayed", 10, callback_rc_signal_delayed);
+	ros::Subscriber subKin = nh.subscribe("/kin_measure", 10, callback_kin_measure);
 
 	ros::ServiceServer service = nh.advertiseService("controller_prop", propagate);
 
