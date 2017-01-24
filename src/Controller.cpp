@@ -32,7 +32,7 @@ void berechne_UAV_sollgeschwindigkeit(const sensor_msgs::Joy::ConstPtr& msg)
 	if( ABS(msg->axes[Z_Axis]) < 0.2 )
 		vel_desired[Z] = 0.0;
 	else
-		vel_desired[Z] 	 =   msg->axes[Z_Axis] * vel_max[Z];
+		vel_desired[Z] 	 = - msg->axes[Z_Axis] * vel_max[Z];
 
 	if( ABS(msg->axes[Yaw_Axis]) < 0.2 )
 		vel_desired[YAW] = 0.0;
