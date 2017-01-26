@@ -1,5 +1,5 @@
 <launch>
-	<rosparam command="load" file="$(find quadrotor_control)/params/params.yaml" />
+	<rosparam command="load" file="$(find quadrotor_control)/params/params_ps3.yaml" />
 
 	<node name="Controller" pkg="quadrotor_control" type="Controller" output="screen"/>
 </launch>
