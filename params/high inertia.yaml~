@@ -1,0 +1,36 @@
+Controller: 
+  m: 0.65 
+  vxy: 
+    P: 1
+    I: 1
+    D: 0.3
+    N: 30
+  vz: 
+    P: 7
+    I: 6
+    D: 0
+    N: 0
+  vyaw: 
+    P: 1
+    I: 3
+    D: 0
+    N: 0
+  roll:
+    P: 1
+    I: 0.3
+    D: 1
+    N: 100
+  pitch: 
+    P: 3
+    I: 3
+    D: 0.5
+    N: 100
+
+  vx_max: 0.5
+  vy_max: 0.5
+  vz_max: 0.5
+  vyaw_max: 0.2
+  X_Axis: 4
+  Y_Axis: 3
+  Z_Axis: 1
+  Yaw_Axis: 0
