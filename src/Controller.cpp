@@ -107,7 +107,7 @@ bool propagate( std_srvs::SetBool::Request& req, std_srvs::SetBool::Response& re
 	ros::Time now = ros::Time::now();
    	double dt = (now - last_Prop).toSec();  
 	
- 	dt = 0.001;						// konstante Schrittweite 
+ 	dt = 0.005;						// konstante Schrittweite 
 
    	last_Prop = now;	
 
@@ -144,9 +144,9 @@ bool propagate( std_srvs::SetBool::Request& req, std_srvs::SetBool::Response& re
 	motion_equation( pose_measure.orientation.psi, ax, ay, roll_desired, pitch_desired );
 
 	// Saturation
-        if( roll_desired >  20.0/180.0*3.1415) roll_desired  = 20.0/180.0*3.1415;
+	if( roll_desired >  20.0/180.0*3.1415) roll_desired  = 20.0/180.0*3.1415;
 	if( roll_desired <- 20.0/180.0*3.1415) roll_desired  =-20.0/180.0*3.1415;
-        if( pitch_desired > 20.0/180.0*3.1415) pitch_desired = 20.0/180.0*3.1415;
+	if( pitch_desired > 20.0/180.0*3.1415) pitch_desired = 20.0/180.0*3.1415;
 	if( pitch_desired <-20.0/180.0*3.1415) pitch_desired =-20.0/180.0*3.1415;
 
 	pid_roll->setInput( roll_desired - pose_measure.orientation.roll );
@@ -166,7 +166,7 @@ bool propagate( std_srvs::SetBool::Request& req, std_srvs::SetBool::Response& re
 	pub.publish(U_out);
 
 	//ROS_INFO( "END PROPAGATION" );
-        //ROS_INFO( "U1: %f, U2: %f, U3: %f, U4: %f", U[0], U[1], U[2], U[3] );
+	//ROS_INFO( "U1: %f, U2: %f, U3: %f, U4: %f", U[0], U[1], U[2], U[3] );
 	return true;
 }
 
@@ -195,7 +195,7 @@ int main(int argc, char **argv)
 
 	pid_vx 	= new PID( ros::NodeHandle(nh, "vxy"	) );
 	pid_vy 	= new PID( ros::NodeHandle(nh, "vxy"	) );
-	pid_vz 	= new PID( ros::NodeHandle(nh, "vz"	), 3, 3 );
+	pid_vz 	= new PID( ros::NodeHandle(nh, "vz"	), 0, 0 );
 	pid_vyaw 	= new PID( ros::NodeHandle(nh, "vyaw"	) );
 	pid_roll 	= new PID( ros::NodeHandle(nh, "roll"	) );
 	pid_pitch 	= new PID( ros::NodeHandle(nh, "pitch"	) );
