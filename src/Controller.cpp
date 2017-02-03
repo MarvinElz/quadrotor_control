@@ -11,14 +11,17 @@
 
 #include "Controller.h"
 
+// Masse des UAV (wird benötigt für Regelung)
+// siehe Methode 'motion_equation'
+double m = 0.65;
+
 double ABS( double d ){
 	if( d < 0 ) return (-1.0)*d;
 	else return d;
 }
 
 void berechne_UAV_sollgeschwindigkeit(const sensor_msgs::Joy::ConstPtr& msg)
-{	
-	//ROS_INFO( "INPUT: %f, %f, %f, %f", msg->axes[4], msg->axes[3], msg->axes[1], msg->axes[0] );
+{		
 	if( ABS(msg->axes[X_Axis]) < 0.2 )
 		vel_desired[X] = 0.0;
 	else
@@ -38,9 +41,13 @@ void berechne_UAV_sollgeschwindigkeit(const sensor_msgs::Joy::ConstPtr& msg)
 		vel_desired[YAW] = 0.0;
 	else
 		vel_desired[YAW] = - msg->axes[Yaw_Axis] * vel_max[YAW];
-	//ROS_INFO( "SOLL_NEU: %f, %f, %f, %f", vel_desired[X], vel_desired[Y], vel_desired[Z], vel_desired[YAW]);
 }
 
+/*
+	Aufruf bei Eintreffen der neuen Pose- und Geschwindigkeitsdaten 
+	vom youBot- bzw. Dynamics
+	lokale Speicherung der Daten
+*/
 void callback_kin_measure( const quadrotor_control::kinematics::ConstPtr& msg )
 {
 	vel_measure.linear.x  = msg->vel.linear.x;
@@ -60,6 +67,9 @@ void callback_kin_measure( const quadrotor_control::kinematics::ConstPtr& msg )
 	pose_measure.orientation.psi 	= msg->pose.orientation.z;
 }
 
+/*
+	Aufruf bei Eintreffen der verzögerten Fernbedienungssignale
+*/
 void callback_rc_signal_delayed( const sensor_msgs::Joy::ConstPtr& msg )
 {
 	berechne_UAV_sollgeschwindigkeit( msg );
@@ -79,14 +89,18 @@ void transform_coord( const double psi, const double *vel_desired_B, double *vel
 	vel_desired_N[Y]   = vel_desired_B[X] * sin_psi + vel_desired_B[Y] * cos_psi;	 
 }
 
-// necessary tilt for desired acceleration
+/*
+	Berechnet die für die Geschwindigkeitsvorgaben benötigte Neigung
+	in X- und Y-Richtung
+*/
 void motion_equation( const double psi, const double ax, const double ay, double& roll_desired, double& pitch_desired )
 {
 	double sin_psi = sin( psi );
 	double cos_psi = cos( psi );
 
-	double m = 0.65; // TODO: Ueber PARAMETER einlesen, oder??
 	double f;
+	// Falls Division durch 0 bevorsteht:
+	// f duch einen konstanten Wert ersetzen
 	if(U[0] != 0.0)
 	   f = m/U[0];
         else
@@ -96,22 +110,24 @@ void motion_equation( const double psi, const double ax, const double ay, double
 	pitch_desired  = f*( -ax * cos_psi - ay * sin_psi );
 }
 
-// Servie Aufruf zum Starten der Berechnung
+/*
+	Bereitgestellte Servicefunktion:
+		berechnet Stellgrößen aus 
+			- vel_desired
+			- vel_measure, pose_measure
+*/
 bool propagate( std_srvs::SetBool::Request& req, std_srvs::SetBool::Response& resp )
 {
 	// Simulation wurde gerade gestartet
 	if( req.data )	
 		last_Prop = ros::Time::now();
 
-	//ROS_INFO( "Start Propagation" );	
 	ros::Time now = ros::Time::now();
-   	double dt = (now - last_Prop).toSec();  
-	
- 	dt = 0.005;						// konstante Schrittweite 
+  double dt = (now - last_Prop).toSec();  
+	dt = 0.005;						// konstante Schrittweite 
+ 	last_Prop = now;	
 
-   	last_Prop = now;	
-
-	// Sollbeschleunigungen	
+	// VZ- und VYaw-Regelung
 	pid_vz->setInput( vel_measure.linear.z - vel_desired[Z] );	
 	U[0] = pid_vz->getOutput();
 	pid_vz->updateState( dt );
@@ -124,8 +140,8 @@ bool propagate( std_srvs::SetBool::Request& req, std_srvs::SetBool::Response& re
 	double vel_desired_N[2];
 	transform_coord( pose_measure.orientation.psi, vel_desired, vel_desired_N );
 	
+	// VX- und VY-Regelung
 	double ax, ay;
-
 	pid_vx->setInput( vel_desired_N[X] - vel_measure.linear.x );	
 	ax = pid_vx->getOutput();
 	pid_vx->updateState( dt );
@@ -133,22 +149,19 @@ bool propagate( std_srvs::SetBool::Request& req, std_srvs::SetBool::Response& re
 	pid_vy->setInput( vel_desired_N[Y] - vel_measure.linear.y );
 	ay = pid_vy->getOutput();
 	pid_vy->updateState( dt );
-
-	//ROS_INFO("AX: %f, AY: %f", ax, ay);
-
-	//ROS_INFO( "SOLL: %f, %f, %f, %f", vel_desired[X], vel_desired[Y], vel_desired[Z], vel_desired[YAW]);
     
-	// Bewegungsgleichung berechnen
+	// benötigte Neigungen berechnen
 	double roll_desired = 0.0;
 	double pitch_desired = 0.0;
 	motion_equation( pose_measure.orientation.psi, ax, ay, roll_desired, pitch_desired );
 
-	// Saturation
+	// Begrenzung der Winkel Phi und Theta
 	if( roll_desired >  20.0/180.0*3.1415) roll_desired  = 20.0/180.0*3.1415;
 	if( roll_desired <- 20.0/180.0*3.1415) roll_desired  =-20.0/180.0*3.1415;
 	if( pitch_desired > 20.0/180.0*3.1415) pitch_desired = 20.0/180.0*3.1415;
 	if( pitch_desired <-20.0/180.0*3.1415) pitch_desired =-20.0/180.0*3.1415;
 
+	// Phi- und Theta-Regelung
 	pid_roll->setInput( roll_desired - pose_measure.orientation.roll );
 	U[1] = pid_roll->getOutput();
 	pid_roll->updateState( dt );
@@ -165,8 +178,6 @@ bool propagate( std_srvs::SetBool::Request& req, std_srvs::SetBool::Response& re
 	U_out.U.push_back(U[3]);
 	pub.publish(U_out);
 
-	//ROS_INFO( "END PROPAGATION" );
-	//ROS_INFO( "U1: %f, U2: %f, U3: %f, U4: %f", U[0], U[1], U[2], U[3] );
 	return true;
 }
 
@@ -178,6 +189,9 @@ int main(int argc, char **argv)
 	ros::init(argc, argv, "Controller");
 
 	ros::NodeHandle nh("Controller");
+
+	// UAV-Parameter holen
+	nh.getParam("m", m);
 
 	// Parameter für Max-Geschwindigkeit holen
 	nh.getParam("vx_max"	, vel_max[X]);
@@ -191,20 +205,25 @@ int main(int argc, char **argv)
 	nh.getParam("Z_Axis"	, Z_Axis);
 	nh.getParam("Yaw_Axis"	, Yaw_Axis);
 
-        last_Prop = ros::Time::now();
+	last_Prop = ros::Time::now();
 
-	pid_vx 	= new PID( ros::NodeHandle(nh, "vxy"	) );
-	pid_vy 	= new PID( ros::NodeHandle(nh, "vxy"	) );
-	pid_vz 	= new PID( ros::NodeHandle(nh, "vz"	), 0, 0 );
+	pid_vx 		= new PID( ros::NodeHandle(nh, "vxy"	) );
+	pid_vy 		= new PID( ros::NodeHandle(nh, "vxy"	) );
+	pid_vz 		= new PID( ros::NodeHandle(nh, "vz"		), 0, 0 );
 	pid_vyaw 	= new PID( ros::NodeHandle(nh, "vyaw"	) );
 	pid_roll 	= new PID( ros::NodeHandle(nh, "roll"	) );
-	pid_pitch 	= new PID( ros::NodeHandle(nh, "pitch"	) );
+	pid_pitch = new PID( ros::NodeHandle(nh, "pitch") );
 
+	// Subscriber für die verzögerten Fernbedienungssignale
 	ros::Subscriber subRC  = nh.subscribe("/rc_signal_delayed", 10, callback_rc_signal_delayed);
+
+	// Subscriber für die Kinematikdaten (Pose + Geschwindigkeiten)
 	ros::Subscriber subKin = nh.subscribe("/kin_measure", 10, callback_kin_measure);
 
+	// Servicebereitstellung zum Ausführen der Propagation
 	ros::ServiceServer service = nh.advertiseService("controller_prop", propagate);
 
+	// Publisher für Stellgrößen, die an die Dynamic weitergegeben werden
 	pub = nh.advertise<quadrotor_control::manipulated_variables>("/stellgroessen", 100);
 
 	ROS_INFO( "Controller Init done" );
