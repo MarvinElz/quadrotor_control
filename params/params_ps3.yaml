@@ -26,8 +26,8 @@ Controller:
     D: 0.5
     N: 100
 
-  vx_max: 2
-  vy_max: 2
+  vx_max: 0.3
+  vy_max: 0.3
   vz_max: 0.5
   vyaw_max: 0.2
   X_Axis: 3
