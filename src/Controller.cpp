@@ -41,6 +41,11 @@ void berechne_UAV_sollgeschwindigkeit(const sensor_msgs::Joy::ConstPtr& msg)
 		vel_desired[YAW] = 0.0;
 	else
 		vel_desired[YAW] = - msg->axes[Yaw_Axis] * vel_max[YAW];
+	ROS_INFO("V SOLL: VX: %f, VY: %f, VZ: %f, VPsi: %f", 
+		vel_desired[X], 
+		vel_desired[Y], 
+		vel_desired[Z], 
+		vel_desired[YAW]);
 }
 
 /*
