@@ -1,34 +1,3 @@
-  m: 0.65 
-  vxy: 
-    P: 4
-    I: 4
-    D: 0
-    N: 0
-  vz: 
-    P: 7
-    I: 6
-    D: 0
-    N: 0
-  vyaw: 
-    P: 1
-    I: 3
-    D: 0
-    N: 0
-  roll: 
-    P: 3
-    I: 3
-    D: 0.5
-    N: 100
-  pitch: 
-    P: 3
-    I: 3
-    D: 0.5
-    N: 100
-
-  vx_max: 3
-  vy_max: 3
-  vz_max: 2
-  vyaw_max: 0.2
   X_Axis: 3
   Y_Axis: 2
   Z_Axis: 1

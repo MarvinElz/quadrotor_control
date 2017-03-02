@@ -11,9 +11,17 @@
 
 #include "Controller.h"
 
+bool logging = false;
+#include <fstream>
+using namespace std;
+string filePathSOLL;
+ofstream logFileSOLL;
+double simTime = 0;
+
 // Masse des UAV (wird benötigt für Regelung)
 // siehe Methode 'motion_equation'
 double m = 0.65;
+
 
 double ABS( double d ){
 	if( d < 0 ) return (-1.0)*d;
@@ -41,11 +49,21 @@ void berechne_UAV_sollgeschwindigkeit(const sensor_msgs::Joy::ConstPtr& msg)
 		vel_desired[YAW] = 0.0;
 	else
 		vel_desired[YAW] = - msg->axes[Yaw_Axis] * vel_max[YAW];
+/*	
 	ROS_INFO("V SOLL: VX: %f, VY: %f, VZ: %f, VPsi: %f", 
 		vel_desired[X], 
 		vel_desired[Y], 
 		vel_desired[Z], 
 		vel_desired[YAW]);
+*/
+	if( logging ){		
+		logFileSOLL << simTime << " , "
+				<< vel_desired[X] << " , " 
+				<< vel_desired[Y] << " , " 
+				<< vel_desired[Z] << " , " 
+				<< vel_desired[YAW] 
+				<< std::endl;
+	}
 }
 
 /*
@@ -70,6 +88,7 @@ void callback_kin_measure( const quadrotor_control::kinematics::ConstPtr& msg )
 	pose_measure.orientation.phi 	= msg->pose.orientation.x;
 	pose_measure.orientation.theta 	= msg->pose.orientation.y;
 	pose_measure.orientation.psi 	= msg->pose.orientation.z;
+
 }
 
 /*
@@ -123,7 +142,9 @@ void motion_equation( const double psi, const double ax, const double ay, double
 */
 bool propagate( std_srvs::SetBool::Request& req, std_srvs::SetBool::Response& resp )
 {
-	// Simulation wurde gerade gestartet
+	simTime += 0.005;
+	
+// Simulation wurde gerade gestartet
 	if( req.data )	
 		last_Prop = ros::Time::now();
 
@@ -210,6 +231,9 @@ int main(int argc, char **argv)
 	nh.getParam("Z_Axis"	, Z_Axis);
 	nh.getParam("Yaw_Axis"	, Yaw_Axis);
 
+	nh.getParam("logging", logging);
+  nh.getParam("filePathSOLL", filePathSOLL);
+
 	last_Prop = ros::Time::now();
 
 	pid_vx 		= new PID( ros::NodeHandle(nh, "vxy"	) );
@@ -218,6 +242,15 @@ int main(int argc, char **argv)
 	pid_vyaw 	= new PID( ros::NodeHandle(nh, "vyaw"	) );
 	pid_roll 	= new PID( ros::NodeHandle(nh, "roll"	) );
 	pid_pitch = new PID( ros::NodeHandle(nh, "pitch") );
+
+	if( logging ){
+		logFileSOLL.open(filePathSOLL.c_str()); 
+		if(!logFileSOLL.is_open()){
+			ROS_ERROR("Logfile: '%s' konnte nicht geöffnet werden. Beende.", filePathSOLL.c_str());
+			return 0;
+		}
+		logFileSOLL << "SimT ,  VX  ,  VY  ,  VZ  , VPsi" << std::endl; 		
+	}
 
 	// Subscriber für die verzögerten Fernbedienungssignale
 	ros::Subscriber subRC  = nh.subscribe("/rc_signal_delayed", 10, callback_rc_signal_delayed);
