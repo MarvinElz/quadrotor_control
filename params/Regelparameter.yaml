@@ -27,5 +27,5 @@
 
   vx_max: 3
   vy_max: 3
-  vz_max: 2
+  vz_max: 3
   vyaw_max: 0.2

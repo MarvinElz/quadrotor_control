@@ -39,6 +39,11 @@ double vel_max[4] = {0.0, 0.0, 0.0, 0.0};
 vel  vel_measure  = {{0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}};
 pose pose_measure = {{0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}};
 
+int X_Axis = 4;
+int Y_Axis = 3;
+int Z_Axis = 1;
+int Yaw_Axis = 0;
+
 ros::Time last_Prop;
 
 PID* pid_vx;

@@ -53,7 +53,7 @@ PID* pid_vyaw;
 PID* pid_roll;
 PID* pid_pitch;
 
-ros::Publisher pub;
-
+ros::Publisher pubStell;
+ros::Publisher pubSoll;
 
 #endif

@@ -1,5 +1,6 @@
 #include "ros/ros.h"
 #include "geometry_msgs/Twist.h"
+#include "geometry_msgs/Quaternion.h"		// wird hier als 4-dim Array float64 missbraucht
 #include "quadrotor_control/manipulated_variables.h"
 #include "quadrotor_control/pose.h"
 #include "quadrotor_control/kinematics.h"
@@ -11,20 +12,13 @@
 
 #include "Controller.h"
 
-bool logging = false;
-#include <fstream>
-using namespace std;
-string filePathSOLL;
-ofstream logFileSOLL;
-double simTime = 0;
-
 // Masse des UAV (wird benötigt für Regelung)
 // siehe Methode 'motion_equation'
 double m = 0.65;
 
 
 double ABS( double d ){
-	if( d < 0 ) return (-1.0)*d;
+	if( d < 0.0 ) return (-1.0)*d;
 	else return d;
 }
 
@@ -56,14 +50,15 @@ void berechne_UAV_sollgeschwindigkeit(const sensor_msgs::Joy::ConstPtr& msg)
 		vel_desired[Z], 
 		vel_desired[YAW]);
 */
-	if( logging ){		
-		logFileSOLL << simTime << " , "
-				<< vel_desired[X] << " , " 
-				<< vel_desired[Y] << " , " 
-				<< vel_desired[Z] << " , " 
-				<< vel_desired[YAW] 
-				<< std::endl;
-	}
+
+// hier publish
+	geometry_msgs::Quaternion VSoll;
+	VSoll.x = vel_desired[X];
+	VSoll.y = vel_desired[Y];
+	VSoll.z = vel_desired[Z];
+	VSoll.w = vel_desired[YAW]
+	pubSoll.publish(VSoll);
+
 }
 
 /*
@@ -141,9 +136,7 @@ void motion_equation( const double psi, const double ax, const double ay, double
 			- vel_measure, pose_measure
 */
 bool propagate( std_srvs::SetBool::Request& req, std_srvs::SetBool::Response& resp )
-{
-	simTime += 0.005;
-	
+{	
 // Simulation wurde gerade gestartet
 	if( req.data )	
 		last_Prop = ros::Time::now();
@@ -202,7 +195,7 @@ bool propagate( std_srvs::SetBool::Request& req, std_srvs::SetBool::Response& re
 	U_out.U.push_back(U[1]);
 	U_out.U.push_back(U[2]);
 	U_out.U.push_back(U[3]);
-	pub.publish(U_out);
+	pubStell.publish(U_out);
 
 	return true;
 }
@@ -231,9 +224,6 @@ int main(int argc, char **argv)
 	nh.getParam("Z_Axis"	, Z_Axis);
 	nh.getParam("Yaw_Axis"	, Yaw_Axis);
 
-	nh.getParam("logging", logging);
-  nh.getParam("filePathSOLL", filePathSOLL);
-
 	last_Prop = ros::Time::now();
 
 	pid_vx 		= new PID( ros::NodeHandle(nh, "vxy"	) );
@@ -243,14 +233,7 @@ int main(int argc, char **argv)
 	pid_roll 	= new PID( ros::NodeHandle(nh, "roll"	) );
 	pid_pitch = new PID( ros::NodeHandle(nh, "pitch") );
 
-	if( logging ){
-		logFileSOLL.open(filePathSOLL.c_str()); 
-		if(!logFileSOLL.is_open()){
-			ROS_ERROR("Logfile: '%s' konnte nicht geöffnet werden. Beende.", filePathSOLL.c_str());
-			return 0;
-		}
-		logFileSOLL << "SimT ,  VX  ,  VY  ,  VZ  , VPsi" << std::endl; 		
-	}
+	
 
 	// Subscriber für die verzögerten Fernbedienungssignale
 	ros::Subscriber subRC  = nh.subscribe("/rc_signal_delayed", 10, callback_rc_signal_delayed);
@@ -261,8 +244,11 @@ int main(int argc, char **argv)
 	// Servicebereitstellung zum Ausführen der Propagation
 	ros::ServiceServer service = nh.advertiseService("controller_prop", propagate);
 
+	// Publisher für Sollgeschwindigkeiten
+	pubSoll = nh.advertise<geometry_msgs::Quaternion>("/VSoll", 10);
+
 	// Publisher für Stellgrößen, die an die Dynamic weitergegeben werden
-	pub = nh.advertise<quadrotor_control::manipulated_variables>("/stellgroessen", 100);
+	pubStell = nh.advertise<quadrotor_control::manipulated_variables>("/stellgroessen", 100);
 
 	ROS_INFO( "Controller Init done" );
 
