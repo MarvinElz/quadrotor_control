@@ -16,6 +16,8 @@
 // siehe Methode 'motion_equation'
 double m = 0.65;
 
+// maximale Schrittweite
+double dt_max = 0.005;
 
 double ABS( double d ){
 	if( d < 0.0 ) return (-1.0)*d;
@@ -145,7 +147,7 @@ bool propagate( std_srvs::SetBool::Request& req, std_srvs::SetBool::Response& re
   double dt = (now - last_Prop).toSec(); 
 	//dt = 0.005;
 	//ROS_INFO("dt: %f", dt);
-	if(dt > 0.005) dt = 0.005; 
+	if(dt > dt_max) dt = dt_max; 
  
 	//dt = 0.005;						// konstante Schrittweite 
  	last_Prop = now;	
@@ -227,6 +229,8 @@ int main(int argc, char **argv)
 	nh.getParam("Y_Axis"	, Y_Axis);
 	nh.getParam("Z_Axis"	, Z_Axis);
 	nh.getParam("Yaw_Axis"	, Yaw_Axis);
+
+	nh.getParam("max_Schrittweite", dt_max);
 
 	last_Prop = ros::Time::now();
 

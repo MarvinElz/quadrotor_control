@@ -142,8 +142,11 @@ bool propagate( std_srvs::SetBool::Request& req, std_srvs::SetBool::Response& re
 		last_Prop = ros::Time::now();
 
 	ros::Time now = ros::Time::now();
-  double dt = (now - last_Prop).toSec();  
-	ROS_INFO("dt: %f", dt); 
+  double dt = (now - last_Prop).toSec(); 
+	//dt = 0.005;
+	//ROS_INFO("dt: %f", dt);
+	if(dt > dt_max) dt = dt_max; 
+ 
 	//dt = 0.005;						// konstante Schrittweite 
  	last_Prop = now;	
 
@@ -224,6 +227,8 @@ int main(int argc, char **argv)
 	nh.getParam("Y_Axis"	, Y_Axis);
 	nh.getParam("Z_Axis"	, Z_Axis);
 	nh.getParam("Yaw_Axis"	, Yaw_Axis);
+
+	nh.getParam("max_Schrittweite", dt_max);
 
 	last_Prop = ros::Time::now();
 
