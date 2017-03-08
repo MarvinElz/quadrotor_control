@@ -143,8 +143,9 @@ bool propagate( std_srvs::SetBool::Request& req, std_srvs::SetBool::Response& re
 
 	ros::Time now = ros::Time::now();
   double dt = (now - last_Prop).toSec(); 
+	//dt = 0.005;
 	//ROS_INFO("dt: %f", dt);
-	if(dt > 0.02) dt = 0.02; 
+	if(dt > 0.005) dt = 0.005; 
  
 	//dt = 0.005;						// konstante Schrittweite 
  	last_Prop = now;	
